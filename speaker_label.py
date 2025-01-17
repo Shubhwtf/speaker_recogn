@@ -5,7 +5,6 @@ import io
 import tempfile
 import os
 from pydub import AudioSegment
-from constants import ASSEMBLYAI_API_KEY
 
 ASSEMBLYAI_API_KEY = st.secrets['ASSEMBLYAI_API_KEY']
 headers = {'authorization': ASSEMBLYAI_API_KEY}
