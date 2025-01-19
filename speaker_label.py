@@ -147,15 +147,20 @@ def main():
                                     st.subheader("Speaker Separated Transcription")
                                     for utterance in result.get('utterances', []):
                                         start_time = int(utterance['start']) // 1000
-                                        minutes = start_time // 60
-                                        seconds = start_time % 60
-                                        formatted_time = f"{minutes:02}:{seconds:02}"
+                                        end_time = int(utterance['end']) // 1000
+
+                                        minutes_end = end_time // 60
+                                        seconds_end = end_time % 60
+                                        minutes_start = start_time // 60
+                                        seconds_start = start_time % 60
+                                        formatted_time_start = f"{minutes_start:02}:{seconds_start:02}"
+                                        formatted_time_end = f"{minutes_end:02}:{seconds_end:02}"
                                         
                                         # Create columns for timestamp, speaker label, text, and audio player
                                         col1, col2, col3, col4 = st.columns([1, 1, 4, 2])
                                         
                                         with col1:
-                                            st.write(f"[{formatted_time}]")
+                                            st.write(f"[{formatted_time_start}-{formatted_time_end}]")
                                         with col2:
                                             st.write(f"Speaker {utterance['speaker']}:")
                                         with col3:
