@@ -29,9 +29,8 @@ This is a Streamlit-based web application for performing speaker separation and 
 ## API Integration
 
 The app integrates with the AssemblyAI API, leveraging the following endpoints:
-- /v2/upload: Uploads audio files for processing.
-- /v2/transcript: Requests transcription with speaker labels.
-- /v2/transcript/{id}: Polls the transcription status and retrieves the results.
+- Upload: Uploads audio files for processing.
+- Transcript: Requests transcription with speaker labels.
 
 ## Deployment:
 
