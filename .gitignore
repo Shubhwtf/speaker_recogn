@@ -1,2 +1,6 @@
 constants.py
 .streamlit/secrets.toml
+
+.env
+.venv
+myenv
