@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+# app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config['UPLOAD_FOLDER'] = tempfile.mkdtemp()
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 
@@ -499,6 +499,8 @@ class AudioProcessor:
             except Exception as e:
                 logger.warning(f"Cleanup failed: {e}")
 
+
+
 # Initialize database on startup
 init_database()
 
@@ -515,52 +517,6 @@ def past_transcripts():
     except Exception as e:
         logger.error(f"Error loading transcripts page: {e}")
         return render_template('transcripts.html', transcripts=[], error="Failed to load transcripts")
-
-@app.route('/api/transcripts', methods=['GET'])
-def get_transcripts():
-    """API endpoint to get all transcripts"""
-    try:
-        transcripts = get_all_transcripts()
-        
-        return jsonify({'transcripts': transcripts})
-    except Exception as e:
-        logger.error(f"Error getting transcripts: {e}")
-        return jsonify({'error': 'Failed to retrieve transcripts'}), 500
-
-@app.route('/api/transcript/<session_id>', methods=['GET'])
-def get_transcript(session_id):
-    """API endpoint to get a specific transcript"""
-    try:
-        include_audio = request.args.get('include_audio', 'false').lower() == 'true'
-        transcript_data = get_transcript_from_db(session_id, include_audio=include_audio)
-        if not transcript_data:
-            return jsonify({'error': 'Transcript not found'}), 404
-        return jsonify(transcript_data)
-    except Exception as e:
-        logger.error(f"Error getting transcript: {e}")
-        return jsonify({'error': 'Failed to retrieve transcript'}), 500
-
-@app.route('/api/transcript/<session_id>/audio', methods=['GET'])
-def get_transcript_audio(session_id):
-    """API endpoint to download the original audio file"""
-    try:
-        audio_data = get_audio_from_db(session_id)
-        if not audio_data or not audio_data['audio_data']:
-            return jsonify({'error': 'Audio not found'}), 404
-        
-        buffer = io.BytesIO(audio_data['audio_data'])
-        buffer.seek(0)
-        
-        return send_file(
-            buffer,
-            mimetype=audio_data['audio_mimetype'],
-            as_attachment=True,
-            download_name=audio_data['filename']
-        )
-        
-    except Exception as e:
-        logger.error(f"Error getting audio: {e}")
-        return jsonify({'error': 'Failed to retrieve audio'}), 500
 
 @app.route('/api/transcript/<session_id>', methods=['DELETE'])
 def delete_transcript(session_id):
