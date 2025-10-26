@@ -1,10 +1,11 @@
 """
-API route handlers for the speaker recognition application
+API route handlers for the app
 """
 import io
 import os
 import uuid
 import threading
+import razorpay
 from datetime import datetime, timedelta
 from flask import request, jsonify, send_file
 from pydub import AudioSegment
@@ -25,7 +26,9 @@ from user_db import (
 
 AUDIO_SESSIONS = {}
 SESSION_LOCK = threading.Lock()
-
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
+razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
 def cleanup_expired_sessions():
     """Clean up sessions older than 1 hour"""
@@ -226,6 +229,84 @@ def register_routes(app):
             logger.error(f"Upgrade error: {e}")
             return jsonify({'error': 'Upgrade failed'}), 500
     
+
+    @app.route('/api/auth/create_order', methods=['POST'])
+    @token_required
+    def create_order():
+        """Create a new order"""
+        try:
+            amount = 9900
+            currency = "INR"
+            order = razorpay_client.order.create({
+                "amount": amount,
+                "currency": currency,
+                "payment_capture": "1",
+                "notes": {
+                    "user_id": request.user_id,
+                    "email": request.user_email,
+                    "plan": "premium"
+                }
+            })
+            return jsonify({
+                "status": "success",
+                "order_id": order["id"],
+                "amount": amount,
+                "currency": currency,
+                "key_id": RAZORPAY_KEY_ID
+            })
+        except Exception as e:
+            logger.error(f"Error create payment: {e}")
+            return jsonify({'error': 'Failed to create payment'}), 500
+
+    @app.route('/api/auth/verify_payment', methods=['POST'])
+    @token_required
+    def verify_payment():
+        """Verify payment and upgrade user to premium"""
+        data = request.get_json()
+        try:
+            razorpay_client.utility.verify_payment_signature({
+                "razorpay_order_id": data['razorpay_order_id'],
+                "razorpay_payment_id": data['razorpay_payment_id'],
+                "razorpay_signature": data['razorpay_signature']
+            })
+            
+            logger.info(f"Payment verified successfully for user {request.user_id}")
+            
+            conn = get_db_connection()
+            try:
+                success = upgrade_to_premium(conn, request.user_id)
+                
+                if not success:
+                    logger.error(f"Failed to upgrade user {request.user_id} after payment")
+                    return jsonify({'error': 'Payment verified but upgrade failed'}), 500
+                
+                user = get_user_by_id(conn, request.user_id)
+                if not user:
+                    return jsonify({'error': 'User not found'}), 404
+                token = generate_token(user['id'], user['email'], True)
+                logger.info(f"User {request.user_id} upgraded to premium successfully")
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Payment verified and upgraded to premium!',
+                    'token': token,
+                    'user': {
+                        'id': user['id'],
+                        'email': user['email'],
+                        'full_name': user.get('full_name'),
+                        'is_premium': True
+                    }
+                })
+                
+            finally:
+                return_db_connection(conn)
+            
+        except razorpay.errors.SignatureVerificationError as e:
+            logger.error(f"Payment signature verification failed: {e}")
+            return jsonify({'error': 'Invalid payment signature'}), 400
+        except Exception as e:
+            logger.error(f"Error verifying payment: {e}")
+            return jsonify({'error': 'Failed to verify payment'}), 500
     @app.route('/api/transcripts', methods=['GET'])
     @token_required
     def get_all_transcripts_api():
@@ -299,7 +380,6 @@ def register_routes(app):
         except Exception as e:
             logger.error(f"Error analyzing transcript: {e}")
             return jsonify({'error': 'Failed to analyze transcript'}), 500
-    
     @app.route('/upload', methods=['POST'])
     @token_required
     def upload_file():
