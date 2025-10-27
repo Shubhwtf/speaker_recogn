@@ -72,6 +72,29 @@ def register_routes(app):
             }
         })
 
+    @app.route('/health')
+    def health():
+        """Health check endpoint for monitoring"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT 1')
+            cursor.close()
+            return_db_connection(conn)
+            
+            return jsonify({
+                'status': 'healthy',
+                'database': 'connected',
+                'timestamp': datetime.now().isoformat()
+            }), 200
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return jsonify({
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 503
+
     @app.route('/api/auth/signup', methods=['POST'])
     def signup():
         """Register a new user"""
